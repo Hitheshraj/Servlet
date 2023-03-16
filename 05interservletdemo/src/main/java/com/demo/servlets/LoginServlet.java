@@ -5,9 +5,11 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -16,11 +18,11 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-@WebServlet("/addproduct")
-public class AddProductServlet extends HttpServlet {
+@WebServlet("/loginservlet")
+public class LoginServlet extends HttpServlet {
 	private static final long serialVersionUID = 1L;
 	private Connection connection;
-	//private Statement statement;
+	// private Statement statement;
 	private PreparedStatement preparedStatement;
 
 	public void init(ServletConfig config) {
@@ -31,7 +33,7 @@ public class AddProductServlet extends HttpServlet {
 			String dbpassword = context.getInitParameter("dbpassword");
 			Class.forName("com.mysql.jdbc.Driver");/* As Tomcat does not know where to go we have to specify this */
 			connection = DriverManager.getConnection(dburl, dbuser, dbpassword);
-			preparedStatement = connection.prepareStatement("insert into product values(?,?,?,?);");
+			preparedStatement = connection.prepareStatement("select * from user where email = ? and password = ?;");
 
 		} catch (ClassNotFoundException | SQLException e1) {
 			e1.printStackTrace();
@@ -40,24 +42,35 @@ public class AddProductServlet extends HttpServlet {
 
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		String id = request.getParameter("id");
-		String name = request.getParameter("name");
-		String discription = request.getParameter("discription");
-		String price = request.getParameter("price");
+		String username = request.getParameter("username");
+		String password = request.getParameter("password");
 		response.setContentType("text/html");
 		PrintWriter out = response.getWriter();
-		if (!IsValidInput(id, true) ||! IsValidInput(name, false) || !IsValidInput(discription, false)
-				||! IsValidInput(price, true)) {
+		if (!IsValidInput(username, false) || !IsValidInput(password, false)) {
 			out.println("<h1>Please enter valid Input :</h1>");
 			return;
 		}
+		ResultSet res = null;
 		try {
-			preparedStatement.setInt(1, Integer.parseInt(id));
-			preparedStatement.setString(2, name);
-			preparedStatement.setString(3, discription);
-			preparedStatement.setInt(4,Integer.parseInt(price));
-			int result=preparedStatement.executeUpdate();
-			out.println("Product Created result :"+result);
+			preparedStatement.setString(1, username);
+			preparedStatement.setString(2, password);
+			boolean result = preparedStatement.execute();// execute update for int result
+			if (result) {
+				// to new page
+				res = preparedStatement.executeQuery();// for displaying
+			}
+			if (res.next()) {
+				RequestDispatcher rd = request.getRequestDispatcher("HomeServleyt");
+				String welcomemessage = "Welcome to servlet Communication demo " + username + " !!";
+				request.setAttribute("message", welcomemessage);
+				rd.include(request, response);
+			} else {
+				// return to same login page
+				out.println("<script>alert(\"Invalid user! wrong email or password\")</script>");
+				out.println("<h3 style=\"color:red;\">Error Loging in</h3>");
+				RequestDispatcher rd = request.getRequestDispatcher("login.html");
+				rd.include(request, response);
+			}
 
 		} catch (SQLException e) {
 			out.println("Error ocured could not insert :");
@@ -86,7 +99,7 @@ public class AddProductServlet extends HttpServlet {
 			if (connection != null) {
 				connection.close();
 			}
-			if(preparedStatement!=null) {
+			if (preparedStatement != null) {
 				preparedStatement.close();
 			}
 		} catch (SQLException e) {
